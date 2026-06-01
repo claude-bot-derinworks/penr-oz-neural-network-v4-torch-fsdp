@@ -22,7 +22,8 @@ class Downloader:
 
     def _save(self, shard_idx: int, tokens: list[int]):
         f = os.path.join(DATA_FOLDER, f"{self.dataset_id}_{shard_idx:06d}")
-        np.save(f, np.array(tokens, dtype=np.uint16))
+        # uint32 (not uint16) so token IDs for large-vocab tokenizers (e.g. Gemma, >65535) are not truncated
+        np.save(f, np.array(tokens, dtype=np.uint32))
         log.info(f"Saved shard {shard_idx:06d} with {len(tokens)} tokens into {f}")
 
     def download(self, path: str, name: str, split: str):
@@ -43,7 +44,8 @@ class Downloader:
 
 class Loader:
     def __init__(self, dataset_id: str, begin_shard=0, begin_idx=0, buffer_size=0, idx_offset=0):
-        self.shards = sorted([shard for shard in os.listdir(DATA_FOLDER) if dataset_id in shard])
+        # Match the exact "<dataset_id>_" shard prefix (not a substring) so e.g. "train" does not also match "pretrain_*"
+        self.shards = sorted([shard for shard in os.listdir(DATA_FOLDER) if shard.startswith(f"{dataset_id}_")])
         if master_proc():
             log.info(f"Found {len(self.shards)} shard(s) for {dataset_id}")
 
